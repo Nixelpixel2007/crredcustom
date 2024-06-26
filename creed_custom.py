@@ -1,17 +1,18 @@
 import asyncio
 import datetime
+import telebot
 from telebot.async_telebot import AsyncTeleBot
 import requests
 import random
 from bs4 import BeautifulSoup
-
+import os
 bot = AsyncTeleBot('7031756423:AAGuq941sEubkwsqe7lDMkBQYaD1TVp19KE')
-trigger_word = ['@ku1337', 'Ван', 'Вань', 'Ванька', 'Кинг', 'Вано', 'Сир', 'Вано', 'Чуня', 'Baня', 'Bаня',
+trigger_word = ['@ku1337','Ваня,', 'Ван', 'Вань', 'Ванька', 'Кинг', 'Вано', 'Сир', 'Вано', 'Чуня', 'Baня', 'Bаня',
                 'Вaня', 'Ваня', 'Вани', 'Ване', 'Ваню', 'Ваней', 'Иван', 'Ивана', 'Ивану', 'Ивана', 'Иваном', 'Иване']
 
 time_message = datetime.datetime.now()
 
-
+target_folder = 'photo'
 def show():
     x = []
     with open('words.txt', 'r') as words_txt:
@@ -49,47 +50,75 @@ def fact():
     return tag.get_text()
 
 
+
+
+@bot.message_handler(content_types=["photo"])
+async def save_photo(message):
+    if message.caption is not None and message.caption.lower().rstrip() == '/сохранить':
+        file_info = await bot.get_file(message.photo[-1].file_id)
+        downloaded_file = await bot.download_file(file_info.file_path)
+        with open(os.path.join(target_folder, f"saved_photo_{message.photo[-1].file_id}.jpg"), "wb") as photo:
+            photo.write(downloaded_file)
+        await bot.reply_to(message,'добавлено')
+
+
+@bot.message_handler(commands=["фото"])
+async def send_photo(message):
+    files = os.listdir('photo')
+    random_file = random.choice(files)
+
+    # Открытие файла в режиме чтения байтов
+    with open(f'photo/{random_file}', 'rb') as photo:
+        # Отправка фото в чат
+        await bot.send_photo(message.chat.id, photo)
+
 @bot.message_handler(commands=["добавить"])
 async def add_word(message):
+    len_slova = False
+    if len(message.text) > 50:
+        len_slova = True
     slovo_est = False
     word = message.text.replace("/добавить ", "")
     print(message.text, message.from_user.username)
     for i in show():
         if i == word:
             slovo_est = True
-    if slovo_est == False:
+    if slovo_est == False and len_slova == False:
         with open('words.txt', 'a') as file:
-            file.write(word + '\n')
-        await bot.reply_to(message, f'Похвала "{word}" добавлена в список восхвалений')
-    if slovo_est == True:
-        await bot.reply_to(message, f'Похвала "{word}" уже существует')
+            file.write('\n' + ' '.join(word.split()) )
+        await bot.reply_to(message, f'Похвала "{" ".join(word.split())}" добавлена в список восхвалений')
+    if slovo_est == True or len_slova == True:
+        await bot.reply_to(message, f'Похвала "{word}" уже существует или слово слишком длинное (не более 50 символов)')
 
 
 
 @bot.message_handler(commands=['удалить'])
 async def delete(message):
     new_list = []
-    slovo_est = False
     del_word = message.text.replace('/удалить ','')
-    with open('words.txt','r') as delete:
+    slovo_est = False
+    with open('words.txt', 'r') as delete:
         words = delete.read()
-    if del_word in words:
-        slovo_est = True
+
+    for i in words.split('\n'):
+        if del_word == i:
+            slovo_est = True
+
     if slovo_est:
-        g = words.replace(del_word,'')
-        with open('words.txt','w') as delete2:
+        g = words.replace(del_word, '')
+        with open('words.txt', 'w') as delete2:
             delete2.write(g)
         with open('words.txt', 'r') as delete:
             words = delete.read()
             for i in words.split('\n'):
+                print(i)
                 if len(i) != 0:
                     new_list.append(i)
-
-            with open('words.txt', 'w') as delete2:
-                delete2.write('\n'.join(new_list))
+                    with open('words.txt', 'w') as delete2:
+                        delete2.write('\n'.join(new_list))
             await bot.reply_to(message,'слово удалено')
     if not slovo_est:
-        await bot.reply_to(message, 'такого слова нету')
+        await bot.reply_to(message, 'такого слова нет')
 
 
 
